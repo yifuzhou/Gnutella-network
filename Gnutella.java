@@ -13,6 +13,15 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+
+class Global {
+	public static final int ID_OFFSET = 0;
+	public static final int TYPE_OFFSET = 4;
+	public static final int PORT_OFFSET = 5;
+	public static final int TTL_OFFSET = 9;
+	
+	public static final int TYPE_PING = 1;
+}
 public class Gnutella {
 	
 	public static void main(String args[]) throws SocketException {
@@ -32,7 +41,7 @@ class Util {
 	private static byte int1(int x) { return (byte)(x >>  8); }
 	private static byte int0(int x) { return (byte)(x >>  0); }
 	public static void intToByte(byte[] to, int index, int target) {
-		to[index] = int0(target);
+		//to[index] = int0(target);
 		to[index+1] = int1(target);
 		to[index+2] = int2(target);
 		to[index+3] = int3(target);
@@ -64,22 +73,27 @@ class Client {
 	public void init(int port) throws SocketException {
 		this.port = port;
 		pingData = new byte[1024];
+		pingData[Global.TYPE_OFFSET] = Global.TYPE_PING;
+		Util.intToByte(pingData, Global.PORT_OFFSET, this.port);
+		servSocket = new DatagramSocket(port);
+		clntSocket = new DatagramSocket();
+		
 		
 	}
 	
 	public void ping() throws IOException {
-		int p_port = (int)Math.round(Math.random() * 10000);
-		Util.intToByte(pingData, 0, p_port);
+		//int p_port = (int)Math.round(Math.random() * 10000);
+		//Util.intToByte(pingData, 0, p_port);
 		
 		//send pingData through UDP
 		DatagramPacket packet = new DatagramPacket(pingData, pingData.length, 
-				InetAddress.getByName("192.168.136.222"), p_port);
-		send(pingData, p_port);
+				InetAddress.getByName("localhost"), port);
+		clntSocket.send(packet);
 	}
 	
 	public void start() {
 		new Thread(new PingSender()).start();
-		new Thread(new Listener()).start();
+		//new Thread(new Listener()).start();
 	}
 	
 }
@@ -102,5 +116,32 @@ class PingSender extends Thread {
 }
 
 class Listener extends Thread {
+	public void run() {
+		byte[] receive = new byte[1024];
+		while(true) {
+			DatagramPacket packet = new DatagramPacket(receive, receive.length);
+			try {
+				Client.getInstance().servSocket.receive(packet);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			new Thread(new Controller(packet.getData())).start();
+		}	
+	}
+}
+
+class Controller implements Runnable {
+	byte[] data;
+	int type;
+	
+	Controller(byte[] data) {
+		this.data = new byte[1024];
+		System.arraycopy(data, 0, this.data, 0, 1024);
+		type = this.data[Global.TYPE_OFFSET];
+	}
+	
+	public void run() {
+		System.out.println(Global.TYPE_OFFSET);
+	}
 	
 }
